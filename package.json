@@ -2,13 +2,18 @@
   "name": "uno-monorepo",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "dev": "npm run dev:server",
     "build:server": "npm --prefix server run build",
     "build:client": "npm --prefix client run build",
-    "build": "npm run build:server && npm run build:client",
+    "build": "npm --prefix server run build",
+    "build:all": "npm run build:server && npm run build:client",
     "test": "npm --prefix server run test",
     "start": "npm --prefix server run start"
   }

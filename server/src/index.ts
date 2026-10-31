@@ -9,25 +9,76 @@ import { ClientToServerEvents, ServerToClientEvents } from './types/game.js';
 dotenv.config();
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
-const CLIENT_URL = process.env.CLIENT_URL || '*';
+const HOST = '0.0.0.0';
+
+// Configured allowed origins for CORS (Netlify production, localhost, and custom CLIENT_URL)
+const allowedOrigins = [
+  'https://unothegame.netlify.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  ...(process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(',').map((u) => u.trim().replace(/\/$/, ''))
+    : []),
+];
+
+const isOriginAllowed = (origin: string | undefined): boolean => {
+  if (!origin) return true; // Allow non-browser tools, health checks, curl
+  const clean = origin.trim().replace(/\/$/, '');
+  if (allowedOrigins.includes('*') || allowedOrigins.includes(clean)) return true;
+  if (/^https:\/\/.*\.netlify\.app$/.test(clean)) return true;
+  if (process.env.NODE_ENV !== 'production') return true;
+  return false;
+};
 
 const app = express();
-app.use(cors({ origin: CLIENT_URL, credentials: true }));
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  })
+);
+
 app.use(express.json());
 
 const httpServer = createServer(app);
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: {
-    origin: CLIENT_URL === '*' ? true : CLIENT_URL.split(','),
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  transports: ['websocket', 'polling'],
   pingInterval: 10000,
   pingTimeout: 5000,
 });
 
 const roomManager = new RoomManager(io);
+
+// Root service info
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'UNO Game Server',
+    version: '1.0.0',
+    uptime: process.uptime(),
+  });
+});
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
@@ -296,6 +347,6 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`🚀 UNO Game Server running on port ${PORT}`);
+httpServer.listen(PORT, HOST, () => {
+  console.log(`🚀 UNO Game Server running on port ${PORT} (${HOST})`);
 });
