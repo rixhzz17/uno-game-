@@ -51,6 +51,27 @@ app.use(express.json());
 
 const httpServer = createServer(app);
 
+// Normalize incoming socket.io URLs so that /socket.io?EIO=4 matches Engine.IO's strict prefix check
+httpServer.prependListener('request', (req, _res) => {
+  if (req.url) {
+    if (req.url === '/socket.io') {
+      req.url = '/socket.io/';
+    } else if (req.url.startsWith('/socket.io?')) {
+      req.url = req.url.replace('/socket.io?', '/socket.io/?');
+    }
+  }
+});
+
+httpServer.prependListener('upgrade', (req, _socket, _head) => {
+  if (req.url) {
+    if (req.url === '/socket.io') {
+      req.url = '/socket.io/';
+    } else if (req.url.startsWith('/socket.io?')) {
+      req.url = req.url.replace('/socket.io?', '/socket.io/?');
+    }
+  }
+});
+
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: {
     origin: (origin, callback) => {
@@ -63,12 +84,18 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
-  transports: ['websocket', 'polling'],
+  transports: ['polling', 'websocket'],
   pingInterval: 10000,
   pingTimeout: 5000,
 });
 
 const roomManager = new RoomManager(io);
+
+// Fallback redirect for /socket.io if Engine.IO does not intercept
+app.all('/socket.io', (req, res) => {
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(307, '/socket.io/' + query);
+});
 
 // Root service info
 app.get('/', (_req, res) => {

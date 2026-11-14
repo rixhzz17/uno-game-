@@ -23,7 +23,8 @@ export const App: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
-  const [isConnected, setIsConnected] = useState<boolean>(true);
+  const [isConnected, setIsConnected] = useState<boolean>(() => socketClient.socket.connected);
+  const [hasEverConnected, setHasEverConnected] = useState<boolean>(() => socketClient.socket.connected);
   const [toastError, setToastError] = useState<string | null>(null);
 
   // Auto-clear toast after 4s
@@ -37,6 +38,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     const unsubConnection = socketClient.onConnectionChange((connected) => {
       setIsConnected(connected);
+      if (connected) {
+        setHasEverConnected(true);
+      }
     });
 
     const unsubGameState = socketClient.onGameState((state) => {
@@ -105,11 +109,15 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#07111F] text-white overflow-hidden relative">
-      {/* Network Reconnection Banner */}
+      {/* Network Connection / Reconnection Banner */}
       {!isConnected && (
-        <div className="fixed top-0 inset-x-0 z-50 bg-rose-600/95 text-white py-1.5 px-4 text-xs font-bold flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm animate-pulse">
+        <div className="fixed top-0 inset-x-0 z-50 bg-amber-600/95 text-white py-1.5 px-4 text-xs font-bold flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm animate-pulse">
           <WifiOff className="w-4 h-4" />
-          <span>Reconnecting to UNO Game Server...</span>
+          <span>
+            {hasEverConnected
+              ? 'Reconnecting to UNO Game Server...'
+              : 'Connecting to UNO Game Server (Render free tier may take ~30s to wake up)...'}
+          </span>
         </div>
       )}
 

@@ -8,11 +8,13 @@ import {
 } from '../types/game.js';
 import { soundManager } from '../utils/audio.js';
 
-const BACKEND_URL =
+const rawBackendUrl =
   import.meta.env.VITE_BACKEND_URL ||
   (typeof window !== 'undefined' && window.location.port === '5173'
     ? 'http://localhost:3001'
     : '');
+
+const BACKEND_URL = rawBackendUrl ? rawBackendUrl.trim().replace(/\/$/, '') : '';
 
 export class UnoSocketClient {
   public socket: Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -27,9 +29,11 @@ export class UnoSocketClient {
     this.socket = io(BACKEND_URL || undefined, {
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 15,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
-      transports: ['websocket', 'polling'],
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      transports: ['polling', 'websocket'],
     });
 
     this.socket.on('connect', () => {

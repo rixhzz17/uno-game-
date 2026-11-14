@@ -49,7 +49,15 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
     setIsLoading(true);
     setError('');
     soundManager.playSound('click');
+
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+      setError('Connecting timed out. The server may still be waking up — please try again in a moment.');
+      soundManager.playSound('error');
+    }, 10000);
+
     socketClient.socket.emit('create_room', { username }, (res) => {
+      clearTimeout(timeout);
       setIsLoading(false);
       if (!res.success) {
         setError(res.error || 'Failed to create room');
@@ -71,7 +79,15 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({
     setIsLoading(true);
     setError('');
     soundManager.playSound('click');
+
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+      setError('Join request timed out. Please try again.');
+      soundManager.playSound('error');
+    }, 10000);
+
     socketClient.socket.emit('join_room', { roomCode: cleanCode, username }, (res) => {
+      clearTimeout(timeout);
       setIsLoading(false);
       if (!res.success) {
         setError(res.error || 'Failed to join room');
