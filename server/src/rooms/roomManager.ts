@@ -450,8 +450,10 @@ export class RoomManager {
     if (room.cleanupTimeout) clearTimeout(room.cleanupTimeout);
 
     this.codeToRoomId.delete(room.code);
-    for (const [playerId, session] of room.playerSessions.entries()) {
-      this.sessions.delete(session.playerId);
+    for (const [token, session] of this.sessions.entries()) {
+      if (session.roomId === roomId) {
+        this.sessions.delete(token);
+      }
     }
     this.rooms.delete(roomId);
   }

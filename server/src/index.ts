@@ -49,6 +49,14 @@ app.use(
 
 app.use(express.json());
 
+// Log incoming HTTP requests
+app.use((req, _res, next) => {
+  if (req.url !== '/health') {
+    console.log(`📡 [HTTP ${req.method}] ${req.url}`);
+  }
+  next();
+});
+
 const httpServer = createServer(app);
 
 // Normalize incoming socket.io URLs so that /socket.io?EIO=4 matches Engine.IO's strict prefix check
@@ -89,6 +97,10 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   pingTimeout: 5000,
 });
 
+io.engine.on('connection_error', (err) => {
+  console.error(`❌ [Socket.IO Connection Error] code=${err.code} message=${err.message}`);
+});
+
 const roomManager = new RoomManager(io);
 
 // Fallback redirect for /socket.io if Engine.IO does not intercept
@@ -117,6 +129,13 @@ app.get('/health', (_req, res) => {
 });
 
 io.on('connection', (socket) => {
+  const initialTransport = socket.conn.transport.name;
+  console.log(`🔌 [Socket Connected] id=${socket.id} transport=${initialTransport}`);
+
+  socket.conn.on('upgrade', (transport) => {
+    console.log(`⚡ [Socket Upgraded] id=${socket.id} newTransport=${transport.name}`);
+  });
+
   // 1. Create Room
   socket.on('create_room', ({ username, sessionToken }, callback) => {
     try {
@@ -126,9 +145,11 @@ io.on('connection', (socket) => {
       }
       const { room, sessionToken: token } = roomManager.createRoom(username, sessionToken, socket.id);
       socket.join(room.id);
+      console.log(`🏠 [Room Created] code=${room.code} host="${username.trim().slice(0, 16)}"`);
       callback({ success: true, roomCode: room.code, sessionToken: token });
       roomManager.syncPlayer(room, room.engine.hostId, socket);
     } catch (err: any) {
+      console.error(`❌ [Create Room Error] ${err.message}`);
       callback({ success: false, error: err.message || 'Failed to create room' });
     }
   });
@@ -138,13 +159,16 @@ io.on('connection', (socket) => {
     try {
       const result = roomManager.joinRoom(roomCode, username, sessionToken, socket.id);
       if (!result.success || !result.room || !result.playerId) {
+        console.warn(`⚠️ [Join Room Rejected] code=${roomCode} reason="${result.error}"`);
         callback({ success: false, error: result.error || 'Failed to join room' });
         return;
       }
       socket.join(result.room.id);
+      console.log(`👤 [Player Joined] code=${roomCode} player="${username.trim().slice(0, 16)}"`);
       callback({ success: true, sessionToken: result.sessionToken });
       roomManager.syncPlayer(result.room, result.playerId, socket);
     } catch (err: any) {
+      console.error(`❌ [Join Room Error] ${err.message}`);
       callback({ success: false, error: err.message || 'Failed to join room' });
     }
   });
@@ -157,6 +181,7 @@ io.on('connection', (socket) => {
         callback({ success: false, error: result.error });
         return;
       }
+      console.log(`🔄 [Session Reconnected] code=${roomCode} socketId=${socket.id}`);
       callback({ success: true });
     } catch (err: any) {
       callback({ success: false, error: err.message || 'Failed to reconnect' });
@@ -180,6 +205,7 @@ io.on('connection', (socket) => {
 
   // 7. Start Game
   socket.on('start_game', () => {
+    console.log(`🎮 [Start Game Triggered] by socketId=${socket.id}`);
     roomManager.startGame(socket.id);
   });
 
@@ -205,6 +231,7 @@ io.on('connection', (socket) => {
 
       const res = room.engine.playCard(session.playerId, cardId, chosenColor, targetPlayerId, giftCardIds);
       if (!res.success) {
+        console.warn(`⚠️ [Illegal Move] player=${session.username} error="${res.error}"`);
         if (callback) callback({ success: false, error: res.error });
         return;
       }
@@ -369,7 +396,8 @@ io.on('connection', (socket) => {
   });
 
   // 16. Disconnect
-  socket.on('disconnect', () => {
+  socket.on('disconnect', (reason) => {
+    console.log(`🔌 [Socket Disconnected] id=${socket.id} reason="${reason}"`);
     roomManager.handleDisconnect(socket.id);
   });
 });

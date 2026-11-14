@@ -15,6 +15,8 @@
     "build": "npm --prefix server run build",
     "build:all": "npm run build:server && npm run build:client",
     "test": "npm --prefix server run test",
+    "test:integration": "npm --prefix server run test:integration",
+    "test:all": "npm --prefix server run test:all",
     "start": "npm --prefix server run start"
   }
 }
