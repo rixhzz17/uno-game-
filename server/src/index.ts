@@ -1,5 +1,6 @@
-import express from 'express';
-import { createServer } from 'http';
+import express, { Request, Response, NextFunction } from 'express';
+import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { Duplex } from 'stream';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -50,7 +51,7 @@ app.use(
 app.use(express.json());
 
 // Log incoming HTTP requests
-app.use((req, _res, next) => {
+app.use((req: Request, _res: Response, next: NextFunction) => {
   if (req.url !== '/health') {
     console.log(`📡 [HTTP ${req.method}] ${req.url}`);
   }
@@ -60,7 +61,7 @@ app.use((req, _res, next) => {
 const httpServer = createServer(app);
 
 // Normalize incoming socket.io URLs so that /socket.io?EIO=4 matches Engine.IO's strict prefix check
-httpServer.prependListener('request', (req, _res) => {
+httpServer.prependListener('request', (req: IncomingMessage, _res: ServerResponse) => {
   if (req.url) {
     if (req.url === '/socket.io') {
       req.url = '/socket.io/';
@@ -70,7 +71,7 @@ httpServer.prependListener('request', (req, _res) => {
   }
 });
 
-httpServer.prependListener('upgrade', (req, _socket, _head) => {
+httpServer.prependListener('upgrade', (req: IncomingMessage, _socket: Duplex, _head: Buffer) => {
   if (req.url) {
     if (req.url === '/socket.io') {
       req.url = '/socket.io/';
@@ -104,13 +105,13 @@ io.engine.on('connection_error', (err) => {
 const roomManager = new RoomManager(io);
 
 // Fallback redirect for /socket.io if Engine.IO does not intercept
-app.all('/socket.io', (req, res) => {
+app.all('/socket.io', (req: Request, res: Response) => {
   const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
   res.redirect(307, '/socket.io/' + query);
 });
 
 // Root service info
-app.get('/', (_req, res) => {
+app.get('/', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'UNO Game Server',
@@ -120,7 +121,7 @@ app.get('/', (_req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: Date.now(),

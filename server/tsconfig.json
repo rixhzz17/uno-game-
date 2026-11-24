@@ -10,5 +10,6 @@
     "rootDir": "./src",
     "declaration": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/tests/**/*", "**/*.test.ts", "**/*.test.js", "**/*.test.mjs"]
 }
